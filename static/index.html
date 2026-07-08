@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Database Reporting Platform</title>
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS v3 CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom thin scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.3);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.2);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.4);
+    }
+    .glass {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="h-full font-sans antialiased overflow-hidden">
+
+  <!-- ================= AUTH VIEW ================= -->
+  <div id="auth-view" class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-950 via-slate-950 to-slate-950">
+    <div class="sm:mx-auto sm:w-full sm:max-w-md text-center">
+      <div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-400 ring-1 ring-indigo-500/20 mb-4 animate-pulse">
+        <i data-lucide="database" class="w-6 h-6"></i>
+      </div>
+      <h2 class="font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+        Database Reporting
+      </h2>
+      <p class="mt-2 text-sm text-slate-400">
+        Pilih server dan masuk menggunakan kredensial database Anda.
+      </p>
+    </div>
+
+    <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-md">
+      <div class="glass p-8 rounded-2xl shadow-2xl space-y-6">
+        
+        <!-- Error Alert -->
+        <div id="login-error" class="hidden flex items-start gap-3 rounded-lg bg-red-950/50 border border-red-500/30 p-4 text-sm text-red-200">
+          <i data-lucide="alert-circle" class="w-5 h-5 text-red-400 shrink-0 mt-0.5"></i>
+          <div>
+            <h5 class="font-semibold">Gagal Masuk</h5>
+            <p id="login-error-msg" class="mt-1 text-xs opacity-90 leading-relaxed"></p>
+          </div>
+        </div>
+
+        <form id="login-form" class="space-y-5" onsubmit="handleLogin(event)">
+          <!-- Server Selector -->
+          <div>
+            <label for="server-select" class="block text-xs font-semibold uppercase tracking-wider text-slate-400">Pilih Server / Database</label>
+            <div class="mt-1.5 relative">
+              <select id="server-select" required onchange="updateServerInfo()" class="block w-full rounded-lg border-0 bg-slate-900/80 py-3 pl-4 pr-10 text-white shadow-sm ring-1 ring-inset ring-slate-800 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm appearance-none">
+                <option value="" disabled selected>Memuat daftar server...</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                <i data-lucide="chevrons-up-down" class="w-4 h-4"></i>
+              </div>
+            </div>
+            
+            <!-- Connection Preview -->
+            <div id="server-info-preview" class="hidden mt-2 p-2.5 rounded-lg bg-slate-900/40 border border-slate-800 text-[11px] text-slate-400 space-y-1">
+              <div><span class="text-slate-500">Host:</span> <span id="info-host" class="font-mono text-slate-300"></span></div>
+              <div><span class="text-slate-500">Database Name:</span> <span id="info-db" class="font-mono text-slate-300"></span></div>
+            </div>
+          </div>
+
+
+          <div>
+            <button type="submit" id="btn-login" class="flex w-full justify-center items-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition duration-150 ease-in-out">
+              <span id="btn-login-text">Sambungkan & Masuk</span>
+              <span id="btn-login-spinner" class="hidden animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ================= DASHBOARD VIEW ================= -->
+  <div id="dashboard-view" class="hidden h-full flex flex-col bg-slate-950">
+    
+    <!-- Header -->
+    <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-900 bg-slate-950/80 px-6 backdrop-blur-md">
+      <div class="flex items-center gap-3">
+        <div class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600/10 text-indigo-400">
+          <i data-lucide="database" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <span class="font-display font-bold text-white text-lg tracking-tight" id="dash-server-name">-</span>
+          <span class="ml-2 text-xs font-mono bg-slate-900 text-slate-400 px-2 py-0.5 rounded border border-slate-800" id="dash-dbname">-</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <!-- Connection Status -->
+        <div class="hidden sm:flex items-center gap-2 text-xs text-slate-400 bg-slate-900/50 px-3 py-1.5 rounded-lg border border-slate-900">
+          <span class="relative flex h-2.5 w-2.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span>Logged in as: <strong class="text-slate-200" id="dash-username">-</strong></span>
+        </div>
+
+        <button onclick="handleLogout()" class="inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3.5 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 transition">
+          <i data-lucide="log-out" class="w-4 h-4 text-slate-400"></i>
+          <span>Keluar</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex flex-1 overflow-hidden">
+      
+      <!-- Sidebar / Table Explorer -->
+      <aside class="w-80 shrink-0 border-r border-slate-900 bg-slate-950/40 flex flex-col">
+        <!-- Search bar -->
+        <div class="p-4 border-b border-slate-900">
+          <div class="relative">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+              <i data-lucide="search" class="w-4 h-4"></i>
+            </div>
+            <input type="text" id="table-search" placeholder="Cari tabel atau view..." oninput="filterTables()" class="block w-full rounded-lg border-0 bg-slate-900/50 py-2 pl-9 pr-3 text-slate-200 placeholder-slate-500 ring-1 ring-inset ring-slate-900 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-xs">
+          </div>
+        </div>
+
+        <!-- Tables list container -->
+        <div class="flex-1 overflow-y-auto p-3 space-y-1" id="tables-list">
+          <div class="text-center py-8 text-xs text-slate-500">Memuat tabel...</div>
+        </div>
+      </aside>
+
+      <!-- Content Area -->
+      <main class="flex-1 flex flex-col bg-slate-900/25 overflow-hidden">
+        
+        <!-- Workspace Tabs -->
+        <div class="border-b border-slate-900 bg-slate-950/50 px-6 flex justify-between items-center">
+          <div class="flex space-x-6">
+            <button onclick="switchTab('table-browser')" id="tab-btn-table-browser" class="border-b-2 border-indigo-500 text-indigo-400 px-1 py-4 text-sm font-semibold tracking-wide flex items-center gap-2">
+              <i data-lucide="table-2" class="w-4 h-4"></i>
+              <span>Table Browser</span>
+            </button>
+            <button onclick="switchTab('query-editor')" id="tab-btn-query-editor" class="border-b-2 border-transparent text-slate-400 hover:text-slate-300 hover:border-slate-800 px-1 py-4 text-sm font-semibold tracking-wide flex items-center gap-2">
+              <i data-lucide="terminal" class="w-4 h-4"></i>
+              <span>SQL Query Editor</span>
+            </button>
+          </div>
+          <div id="active-table-title" class="text-xs text-indigo-400 font-mono hidden px-3 py-1 bg-indigo-950/30 rounded border border-indigo-900/50">
+            Selected: <span id="active-table-name"></span>
+          </div>
+        </div>
+
+        <!-- Tab contents container -->
+        <div class="flex-1 flex flex-col overflow-hidden relative">
+          
+          <!-- State Placeholder (when no table is selected and not in custom SQL mode) -->
+          <div id="workspace-placeholder" class="absolute inset-0 flex flex-col justify-center items-center text-center p-8 bg-slate-950/20 z-10">
+            <div class="h-16 w-16 bg-slate-900/80 rounded-2xl flex items-center justify-center border border-slate-800 text-indigo-400 mb-4 shadow-xl">
+              <i data-lucide="compass" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-slate-200">Mulai Menjelajah</h3>
+            <p class="text-sm text-slate-500 mt-1 max-w-sm">
+              Pilih tabel dari bilah sisi kiri untuk menjelajahi isinya, atau beralih ke SQL Query Editor untuk menjalankan kueri kustom.
+            </p>
+          </div>
+
+          <!-- TAB 1: TABLE BROWSER -->
+          <div id="tab-table-browser" class="hidden flex-1 flex flex-col overflow-hidden">
+            <!-- Table Sub-tabs (Data vs Schema) -->
+            <div class="px-6 py-2 border-b border-slate-900 bg-slate-900/30 flex justify-between items-center">
+              <div class="flex space-x-4">
+                <button id="btn-show-data" onclick="switchTableSubTab('data')" class="text-xs font-semibold bg-indigo-600 text-white px-3 py-1.5 rounded-md shadow">
+                  Data Preview
+                </button>
+                <button id="btn-show-schema" onclick="switchTableSubTab('schema')" class="text-xs font-semibold bg-slate-900 text-slate-400 hover:text-slate-300 px-3 py-1.5 rounded-md border border-slate-800">
+                  Table Schema
+                </button>
+              </div>
+              <button id="btn-export-table" onclick="exportData()" class="text-xs font-semibold flex items-center gap-1.5 bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-600/20 px-3 py-1.5 rounded-md transition">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span>Ekspor CSV</span>
+              </button>
+            </div>
+
+            <!-- Preview Data View -->
+            <div id="table-data-view" class="flex-1 overflow-auto p-6">
+              <div class="inline-block min-w-full align-middle">
+                <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg border border-slate-900 bg-slate-950">
+                  <table class="min-w-full divide-y divide-slate-900" id="preview-table">
+                    <thead class="bg-slate-900/50" id="preview-table-head">
+                      <!-- Headers generated dynamically -->
+                    </thead>
+                    <tbody class="divide-y divide-slate-900 bg-transparent text-slate-300" id="preview-table-body">
+                      <!-- Rows generated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Schema View -->
+            <div id="table-schema-view" class="hidden flex-1 overflow-auto p-6">
+              <div class="max-w-4xl mx-auto overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg border border-slate-900 bg-slate-950">
+                <table class="min-w-full divide-y divide-slate-900">
+                  <thead class="bg-slate-900/50">
+                    <tr>
+                      <th scope="col" class="py-3.5 pl-6 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Column Name</th>
+                      <th scope="col" class="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Data Type</th>
+                      <th scope="col" class="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Nullable</th>
+                      <th scope="col" class="px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Default Value</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-900 bg-transparent text-slate-300" id="schema-table-body">
+                    <!-- Schema dynamic rows -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: SQL QUERY EDITOR -->
+          <div id="tab-query-editor" class="hidden flex-1 flex flex-col overflow-hidden p-6 gap-6">
+            
+            <!-- SQL Inputs & Controls -->
+            <div class="flex flex-col gap-4">
+              <div class="relative">
+                <textarea id="sql-query-input" rows="6" class="block w-full rounded-xl border-0 bg-slate-950 p-4 font-mono text-sm text-slate-200 shadow-xl ring-1 ring-inset ring-slate-800 focus:ring-2 focus:ring-inset focus:ring-indigo-500" placeholder="Tulis query SQL di sini, contoh:&#10;SELECT * FROM nama_tabel LIMIT 10;"></textarea>
+                <div class="absolute bottom-3 right-3 text-[10px] text-slate-500 font-mono">
+                  Press Ctrl+Enter to execute
+                </div>
+              </div>
+
+              <div class="flex justify-between items-center">
+                <div class="text-xs text-slate-500 flex items-center gap-1">
+                  <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                  <span>Hanya kueri read-only (SELECT) yang didukung.</span>
+                </div>
+                <div class="flex gap-3">
+                  <button onclick="clearQuery()" class="rounded-lg border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-slate-800 transition">
+                    Bersihkan
+                  </button>
+                  <button onclick="runCustomQuery()" id="btn-run-query" class="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-indigo-500 transition">
+                    <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                    <span>Jalankan Kueri</span>
+                    <span id="btn-run-spinner" class="hidden animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Query Results Container -->
+            <div class="flex-1 flex flex-col overflow-hidden border border-slate-900 bg-slate-950/60 rounded-xl">
+              <!-- Result Header -->
+              <div class="px-5 py-3 border-b border-slate-900 bg-slate-950 flex justify-between items-center shrink-0">
+                <span class="text-xs font-bold text-slate-400 tracking-wide uppercase">Hasil Kueri</span>
+                <button id="btn-export-query" onclick="exportData()" class="hidden text-xs font-semibold flex items-center gap-1.5 bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-600/20 px-3 py-1 rounded transition">
+                  <i data-lucide="download" class="w-3 h-3"></i>
+                  <span>Ekspor CSV</span>
+                </button>
+              </div>
+
+              <!-- Output View -->
+              <div class="flex-1 overflow-auto p-4" id="query-results-area">
+                <!-- Message when no query is executed yet -->
+                <div id="query-empty-state" class="h-full flex flex-col justify-center items-center text-center p-8 text-slate-500">
+                  <i data-lucide="database-backup" class="w-8 h-8 text-slate-700 mb-2"></i>
+                  <p class="text-xs">Tulis kueri di atas dan klik "Jalankan Kueri" untuk melihat data.</p>
+                </div>
+
+                <!-- Query Error Display -->
+                <div id="query-error" class="hidden rounded-lg bg-red-950/50 border border-red-500/20 p-4 text-xs text-red-400 font-mono whitespace-pre-wrap"></div>
+
+                <!-- Query Table Result -->
+                <div class="inline-block min-w-full align-middle">
+                  <table class="min-w-full divide-y divide-slate-900 hidden" id="query-table">
+                    <thead class="bg-slate-900/50" id="query-table-head"></thead>
+                    <tbody class="divide-y divide-slate-900 text-slate-300" id="query-table-body"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </main>
+
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
